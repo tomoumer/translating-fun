@@ -33,7 +33,7 @@ def parse_wotd_url(
     if result.status_code != 200:
         raise ValueError(f'Website did not respond as expected. Status code: {result.status_code}')
 
-    soup = BeautifulSoup(result.text)
+    soup = BeautifulSoup(result.text, features="html.parser")
 
     # can see previous words of the day using h2 tags
     wotd = soup.find_all('h2')[0].text
@@ -82,25 +82,30 @@ st.title('Translating From English to Italian and Slovenian')
 wotd, definition, examples, entry_link = parse_wotd_url('https://www.merriam-webster.com/word-of-the-day/')
 
 ## =========== actual display
-st.write('word:', wotd)
-st.write('definition:', definition)
-for i, example in enumerate(examples):
-    st.write(f'example {i}: {example}')
+st.divider()
+col1, col2, col3 = st.columns(3)
+col1.write(f'🇺🇸 {wotd}')
+col1.write('definition:')
+col1.write(definition)
+col1.write('Examples:')
+for example in examples:
+    col1.write(example)
+
+col2.write(f"🇸🇮 {eng_to_slo(wotd)[0]['translation_text']}")
+col2.write('Definicija:')
+col2.write(eng_to_slo(definition)[0]['translation_text'])
+col2.write('Primeri:')
+for example in examples:
+    col2.write(eng_to_slo(example)[0]["translation_text"])
+
+col3.write(f"🇮🇹 {eng_to_ita(wotd)[0]['translation_text']}")
+col3.write('Definizione:')
+col3.write(eng_to_ita(definition)[0]['translation_text'])
+col3.write('Esempi:')
+for example in examples:
+    col3.write(eng_to_ita(example)[0]["translation_text"])
 
 st.divider()
-st.write('slo')
-st.write('beseda dneva:', eng_to_slo(wotd)[0]['translation_text'])
-st.write('definicija:', eng_to_slo(definition)[0]['translation_text'])
-for i, example in enumerate(examples):
-    st.write(f'primer {i}: {eng_to_slo(example)[0]["translation_text"]}')
-
-st.divider()
-st.write('ita')
-st.write('parola del giorno:', eng_to_ita(wotd)[0]['translation_text'])
-st.write('definizione:', eng_to_ita(definition)[0]['translation_text'])
-for i, example in enumerate(examples):
-    st.write(f'esempio {i}: {eng_to_ita(example)[0]["translation_text"]}')
-
 
 
 
