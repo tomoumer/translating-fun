@@ -4,10 +4,10 @@ import requests
 from bs4 import BeautifulSoup
 import random
 # import time
-from transformers import pipeline
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 # new changes
-from functools import lru_cache
+# from functools import lru_cache
 
 def parse_wotd_url(
     url: str
@@ -62,15 +62,43 @@ def parse_wotd_url(
 
     return wotd, definition, examples, entry_link
 
-@lru_cache(maxsize=1)
-def get_translator(src_lang: str, tgt_lang: str):
-    return pipeline(
-        "translation", 
-        model="facebook/m2m100_418M", 
-        tokenizer="facebook/m2m100_418M",
-        src_lang=src_lang, 
-        tgt_lang=tgt_lang
-    )
+def translate(
+    text: str ,
+    tokenizer: AutoTokenizer,
+    model: AutoModelForSeq2SeqLM
+) -> tuple[str, str]:
+    inputs = tokenizer(text, return_tensors="pt")
+    # SLO
+    bos = tokenizer.convert_tokens_to_ids("slv_Latn")
+    outs = model.generate(**inputs, forced_bos_token_id=bos, max_length=512)
+    slo_translation = tokenizer.batch_decode(outs, skip_special_tokens=True)[0]
+    # ITA
+    bos = tokenizer.convert_tokens_to_ids("ita_Latn")
+    outs = model.generate(**inputs, forced_bos_token_id=bos, max_length=512)
+    ita_translation = tokenizer.batch_decode(outs, skip_special_tokens=True)[0]
+
+    return slo_translation, ita_translation
+
+
+model_name = "facebook/nllb-200-distilled-600M"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+
+# @lru_cache(maxsize=1)
+# def get_translator(src_lang: str, tgt_lang: str):
+#     return pipeline(
+#         "translation", 
+#         model="facebook/m2m100_418M", 
+#         tokenizer="facebook/m2m100_418M",
+#         src_lang=src_lang, 
+#         tgt_lang=tgt_lang
+#     )
+
+# eng_to_slo = get_translator("en", "sl")
+# eng_to_ita = get_translator("en", "it")
+
+
+
 
 if 'stage' not in st.session_state:
     st.session_state.stage = 0
@@ -91,9 +119,6 @@ if 'available_dates' not in st.session_state:
     st.session_state.available_dates = dates_1001
 
 
-eng_to_slo = get_translator("en", "sl")
-eng_to_ita = get_translator("en", "it")
-
 def get_wotd(wotd_date):
     if wotd_date == 'today':
         url = 'https://www.merriam-webster.com/word-of-the-day/'
@@ -102,8 +127,12 @@ def get_wotd(wotd_date):
         url = f'https://www.merriam-webster.com/word-of-the-day/{random_date}'
 
     wotd, definition, examples, entry_link = parse_wotd_url(url)
-    slovenian = [res['translation_text'] for res in eng_to_slo([wotd, definition] + examples)]
-    italian = [res['translation_text'] for res in eng_to_ita([wotd, definition] + examples)]
+    # slovenian = [res['translation_text'] for res in eng_to_slo([wotd, definition] + examples)]
+    # italian = [res['translation_text'] for res in eng_to_ita([wotd, definition] + examples)]
+
+    translated = [translate(res, tokenizer, model) for res in [wotd, definition] + examples]
+    slovenian = [x[0] for x in translated]
+    italian = [x[1] for x in translated]
     
     st.session_state.english = [wotd, definition, examples, entry_link]
     st.session_state.slovenian = slovenian
